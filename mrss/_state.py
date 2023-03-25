@@ -38,7 +38,7 @@ class DictState(State):
 		pass
 
 class GzipState(DictState):
-	FIELD_NAMES = [f.name for f in fields(StateItem)]
+	_FIELD_NAMES = [f.name for f in fields(StateItem)]
 
 	class TSVDialect(csv.Dialect):
 		"""Unix-y CSV format."""
@@ -71,7 +71,7 @@ class GzipState(DictState):
 		with gzip.open(tmp, mode='wt', newline='') as f:
 			writer = csv.DictWriter(
 				f,
-				fieldnames=self.FIELD_NAMES,
+				fieldnames=self._FIELD_NAMES,
 				dialect=self.TSVDialect,
 			)
 
