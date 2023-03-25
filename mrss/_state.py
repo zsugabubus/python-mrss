@@ -4,7 +4,7 @@ from pathlib import Path
 import csv
 import gzip
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 
 @dataclass(slots=True)
 class StateItem:
@@ -38,7 +38,7 @@ class DictState(State):
 		pass
 
 class GzipState(DictState):
-	FIELD_NAMES = ['key', 'modified', 'expires', 'etag']
+	FIELD_NAMES = [f.name for f in fields(StateItem)]
 
 	class TSVDialect(csv.Dialect):
 		"""Unix-y CSV format."""
