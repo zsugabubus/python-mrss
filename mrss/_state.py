@@ -57,7 +57,6 @@ class GzipState(DictState):
 			with gzip.open(self.filename, mode='rt', newline='') as f:
 				reader = csv.DictReader(
 					f,
-					fieldnames=self.FIELD_NAMES,
 					dialect=self.TSVDialect,
 				)
 				self.store = {
@@ -76,6 +75,7 @@ class GzipState(DictState):
 				dialect=self.TSVDialect,
 			)
 
+			writer.writeheader()
 			for row in sorted(
 				self.store.values(),
 				key=attrgetter('key'),
