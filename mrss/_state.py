@@ -6,7 +6,7 @@ import gzip
 import os
 from dataclasses import asdict, dataclass
 
-@dataclass
+@dataclass(slots=True)
 class StateItem:
 	key: str
 	modified: str | None = None
