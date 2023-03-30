@@ -1,0 +1,3 @@
+#!/bin/sh -eux
+git ls-files -z -- '*.py' | xargs -tr0 black --check
+pytest
