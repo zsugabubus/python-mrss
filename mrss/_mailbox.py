@@ -14,211 +14,217 @@ import mailbox
 import re
 import subprocess
 
+
 class Mailbox:
-	def __init__(
-		self,
-		*,
-		mailbox: mailbox.Mailbox,
-		state: State,
-	):
-		self.mailbox = mailbox
-		self.state = state
-		self.log = logging.getLogger(type(self).__name__)
+    def __init__(
+        self,
+        *,
+        mailbox: mailbox.Mailbox,
+        state: State,
+    ):
+        self.mailbox = mailbox
+        self.state = state
+        self.log = logging.getLogger(type(self).__name__)
 
-	def __enter__(self):
-		self.mailbox.lock()
-		self.msgid2key = None
-		self.state_dirty = False
-		self.state.load()
-		return self
+    def __enter__(self):
+        self.mailbox.lock()
+        self.msgid2key = None
+        self.state_dirty = False
+        self.state.load()
+        return self
 
-	def __exit__(self, exc_type, exc_val, exc_tb, /):
-		self.mailbox.flush()
-		self.mailbox.unlock()
-		self.msgid2key = None
-		if exc_type is None and self.state_dirty:
-			self.state.save()
+    def __exit__(self, exc_type, exc_val, exc_tb, /):
+        self.mailbox.flush()
+        self.mailbox.unlock()
+        self.msgid2key = None
+        if exc_type is None and self.state_dirty:
+            self.state.save()
 
-	@staticmethod
-	def _make_stable_msgid(left, right):
-		left = sha1(left.encode()).hexdigest()[:10]
-		return f'<{left}@{right}>'
+    @staticmethod
+    def _make_stable_msgid(left, right):
+        left = sha1(left.encode()).hexdigest()[:10]
+        return f"<{left}@{right}>"
 
-	def url(
-		self,
-		url: str,
-		**kwargs,
-	):
-		return self.parse(
-			key=url,
-			data=lambda: url,
-			**kwargs,
-		)
+    def url(
+        self,
+        url: str,
+        **kwargs,
+    ):
+        return self.parse(
+            key=url,
+            data=lambda: url,
+            **kwargs,
+        )
 
-	def shell(
-		self,
-		key: str,
-		cmd: str,
-		**kwargs,
-	):
-		return self.parse(
-			key=f'x-mrss:{key}',
-			data=lambda: subprocess.check_output(
-				[cmd],
-				shell=True,
-			),
-			**kwargs,
-		)
+    def shell(
+        self,
+        key: str,
+        cmd: str,
+        **kwargs,
+    ):
+        return self.parse(
+            key=f"x-mrss:{key}",
+            data=lambda: subprocess.check_output(
+                [cmd],
+                shell=True,
+            ),
+            **kwargs,
+        )
 
-	def parse(
-		self,
-		*,
-		key: str,
-		data: Callable[[], str],
-		expires: timedelta = timedelta(),
-		name: str = None,
-		reply_to: bool = True,
-		user_agent: str | None = None
-	):
-		now = datetime.now(timezone.utc)
+    def parse(
+        self,
+        *,
+        key: str,
+        data: Callable[[], str],
+        expires: timedelta = timedelta(),
+        name: str = None,
+        reply_to: bool = True,
+        user_agent: str | None = None,
+    ):
+        now = datetime.now(timezone.utc)
 
-		state = self.state.get(key)
+        state = self.state.get(key)
 
-		if x := state.expires:
-			expires_in = (parsedate_to_datetime(x) - now).total_seconds()
-			self.log.debug('%s: Expires in %s', key, human_duration(expires_in))
-			if 0 < expires_in:
-				return
+        if x := state.expires:
+            expires_in = (parsedate_to_datetime(x) - now).total_seconds()
+            self.log.debug("%s: Expires in %s", key, human_duration(expires_in))
+            if 0 < expires_in:
+                return
 
-		self.state_dirty = True
+        self.state_dirty = True
 
-		saved_agent = feedparser.USER_AGENT
-		try:
-			feedparser.USER_AGENT = user_agent or saved_agent
-			result = feedparser.parse(
-				data(),
-				etag=state.etag,
-				modified=state.modified,
-			)
-		finally:
-			feedparser.USER_AGENT = saved_agent
+        saved_agent = feedparser.USER_AGENT
+        try:
+            feedparser.USER_AGENT = user_agent or saved_agent
+            result = feedparser.parse(
+                data(),
+                etag=state.etag,
+                modified=state.modified,
+            )
+        finally:
+            feedparser.USER_AGENT = saved_agent
 
-		if 400 <= (result.get('status') or 200):
-			self.log.error('HTTP error %d: %s', result.status, key)
+        if 400 <= (result.get("status") or 200):
+            self.log.error("HTTP error %d: %s", result.status, key)
 
-		feed = result.feed
-		# Ensure we have some data (not a conditional GET).
-		if result.entries:
-			self.feed_host = urlparse(feed.link).hostname
-			self.feed_msgid = self._make_stable_msgid(
-				feed.get('id') or feed.link,
-				self.feed_host,
-			)
-			self.from_hdr = formataddr((name or feed.title, 'feed@%s' % self.feed_host))
+        feed = result.feed
+        # Ensure we have some data (not a conditional GET).
+        if result.entries:
+            self.feed_host = urlparse(feed.link).hostname
+            self.feed_msgid = self._make_stable_msgid(
+                feed.get("id") or feed.link,
+                self.feed_host,
+            )
+            self.from_hdr = formataddr((name or feed.title, "feed@%s" % self.feed_host))
 
-			try:
-				self.old_modified = parsedate_to_datetime(state.modified)
-			except ValueError:
-				self.old_modified = None
+            try:
+                self.old_modified = parsedate_to_datetime(state.modified)
+            except ValueError:
+                self.old_modified = None
 
-			self.modified = self.old_modified
+            self.modified = self.old_modified
 
-			has_new = False
-			for entry in result.entries:
-				if msg := self._generate_entry_msg(entry, feed):
-					has_new = True
-					self._add_msg(msg)
+            has_new = False
+            for entry in result.entries:
+                if msg := self._generate_entry_msg(entry, feed):
+                    has_new = True
+                    self._add_msg(msg)
 
-			if has_new and reply_to:
-				msg = self._generate_feed_msg(feed)
-				self._add_msg(msg)
+            if has_new and reply_to:
+                msg = self._generate_feed_msg(feed)
+                self._add_msg(msg)
 
-			if self.modified is not None:
-				state.modified = format_datetime(self.modified)
+            if self.modified is not None:
+                state.modified = format_datetime(self.modified)
 
-		state.etag = result.get('etag')
+        state.etag = result.get("etag")
 
-		ttl = timedelta(seconds=int(feed.get('ttl') or 0))
-		expires = now + max(expires, ttl)
-		if x := result.headers.get('expires'):
-			state.expires = format_datetime(max(
-				parsedate_to_datetime(x),
-				expires,
-			))
-		else:
-			state.expires = format_datetime(expires)
+        ttl = timedelta(seconds=int(feed.get("ttl") or 0))
+        expires = now + max(expires, ttl)
+        if x := result.headers.get("expires"):
+            state.expires = format_datetime(
+                max(
+                    parsedate_to_datetime(x),
+                    expires,
+                )
+            )
+        else:
+            state.expires = format_datetime(expires)
 
-	def _generate_feed_msg(self, feed):
-		msg = EmailMessage()
-		msg['From'] = self.from_hdr
-		msg['Message-ID'] = self.feed_msgid
-		msg['Subject'] = feed.title
-		msg['Link'] = feed.link
-		if subtitle_detail := feed.get('subtitle_detail'):
-			msg.set_content(
-				subtitle_detail.value,
-				subtype=subtitle_detail.type.split('/')[1],
-				cte='8bit',
-			)
-		return msg
+    def _generate_feed_msg(self, feed):
+        msg = EmailMessage()
+        msg["From"] = self.from_hdr
+        msg["Message-ID"] = self.feed_msgid
+        msg["Subject"] = feed.title
+        msg["Link"] = feed.link
+        if subtitle_detail := feed.get("subtitle_detail"):
+            msg.set_content(
+                subtitle_detail.value,
+                subtype=subtitle_detail.type.split("/")[1],
+                cte="8bit",
+            )
+        return msg
 
-	def _generate_entry_msg(self, entry, feed):
-		date_as_tv = mktime(entry.get('updated_parsed') or entry.get('published_parsed'))
-		date = datetime.fromtimestamp(date_as_tv, tz=timezone.utc)
+    def _generate_entry_msg(self, entry, feed):
+        date_as_tv = mktime(
+            entry.get("updated_parsed") or entry.get("published_parsed")
+        )
+        date = datetime.fromtimestamp(date_as_tv, tz=timezone.utc)
 
-		if self.old_modified is not None and date <= self.old_modified:
-			return
+        if self.old_modified is not None and date <= self.old_modified:
+            return
 
-		self.modified = max(self.modified or date, date)
+        self.modified = max(self.modified or date, date)
 
-		msg = EmailMessage()
-		msg['Received'] = 'mrss; %s' % formatdate(localtime=True)
-		msg['In-Reply-To'] = self.feed_msgid
-		left = entry.get('id') or entry.get('link') or entry.title
-		assert 5 < len(left)
-		msg['Message-ID'] = self._make_stable_msgid(left, self.feed_host)
-		msg['Date'] = formatdate(date_as_tv, localtime=True)
-		msg['From'] = self.from_hdr
-		msg['Subject'] = entry.title_detail.value.replace('\n', ' ')
-		if author := entry.get('author_detail') or feed.get('author_detail'):
-			if href := author.get('href'):
-				msg['Author'] = '%s <%s>' % (author.name, href)
-			else:
-				msg['Author'] = author.name
-		msg['Link'] = entry.link
-		content = entry.get('content')
-		if content:
-			assert len(content) == 1
-			content = content[0]
-		else:
-			content = entry.get('summary_detail')
-		if not content:
-			content = {
-				'value': entry.summary,
-				'language': None,
-				'type': (
-					'text/html' if re.search('</[a-z]*>', entry.summary) else
-					'text/plain'
-				),
-			}
-		msg['Content-Language'] = content['language'] or feed.get('language')
-		for tag in entry.get('tags') or []:
-			msg['X-Category'] = tag.label or tag.term
-		msg.set_content(
-			content['value'],
-			subtype=content['type'].split('/')[1],
-			cte='8bit',
-		)
-		return msg
+        msg = EmailMessage()
+        msg["Received"] = "mrss; %s" % formatdate(localtime=True)
+        msg["In-Reply-To"] = self.feed_msgid
+        left = entry.get("id") or entry.get("link") or entry.title
+        assert 5 < len(left)
+        msg["Message-ID"] = self._make_stable_msgid(left, self.feed_host)
+        msg["Date"] = formatdate(date_as_tv, localtime=True)
+        msg["From"] = self.from_hdr
+        msg["Subject"] = entry.title_detail.value.replace("\n", " ")
+        if author := entry.get("author_detail") or feed.get("author_detail"):
+            if href := author.get("href"):
+                msg["Author"] = "%s <%s>" % (author.name, href)
+            else:
+                msg["Author"] = author.name
+        msg["Link"] = entry.link
+        content = entry.get("content")
+        if content:
+            assert len(content) == 1
+            content = content[0]
+        else:
+            content = entry.get("summary_detail")
+        if not content:
+            content = {
+                "value": entry.summary,
+                "language": None,
+                "type": (
+                    "text/html"
+                    if re.search("</[a-z]*>", entry.summary)
+                    else "text/plain"
+                ),
+            }
+        msg["Content-Language"] = content["language"] or feed.get("language")
+        for tag in entry.get("tags") or []:
+            msg["X-Category"] = tag.label or tag.term
+        msg.set_content(
+            content["value"],
+            subtype=content["type"].split("/")[1],
+            cte="8bit",
+        )
+        return msg
 
-	def _update_msgids(self):
-		self.msgid2key = {}
-		for key, msg in self.mailbox.iteritems():
-			self.msgid2key[msg['Message-ID']] = key
+    def _update_msgids(self):
+        self.msgid2key = {}
+        for key, msg in self.mailbox.iteritems():
+            self.msgid2key[msg["Message-ID"]] = key
 
-	def _add_msg(self, msg):
-		if self.msgid2key is None:
-			self._update_msgids()
-		if msg['Message-ID'] not in self.msgid2key:
-			self.log.debug('New: %s', msg['Message-ID'])
-			self.msgid2key[msg['Message-ID']] = self.mailbox.add(msg)
+    def _add_msg(self, msg):
+        if self.msgid2key is None:
+            self._update_msgids()
+        if msg["Message-ID"] not in self.msgid2key:
+            self.log.debug("New: %s", msg["Message-ID"])
+            self.msgid2key[msg["Message-ID"]] = self.mailbox.add(msg)

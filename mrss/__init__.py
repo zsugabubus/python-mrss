@@ -7,5 +7,5 @@ from datetime import datetime
 import feedparser
 
 feedparser.registerDateHandler(
-	lambda s: datetime.strptime(s, '%d %b %Y %Z').timetuple()
+    lambda s: datetime.strptime(s, "%d %b %Y %Z").timetuple()
 )
