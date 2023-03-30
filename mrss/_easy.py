@@ -8,7 +8,7 @@ class SitesMixin:
 		self,
 		channel: str,
 		*,
-		name: str,
+		name: str = None,
 	):
 		self.url(
 			name=name,
