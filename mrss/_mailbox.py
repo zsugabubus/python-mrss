@@ -28,16 +28,16 @@ class Mailbox:
 
     def __enter__(self):
         self.mailbox.lock()
-        self.msgid2key = None
-        self.state_dirty = False
+        self._msgid2key = None
+        self._state_dirty = False
         self.state.load()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb, /):
         self.mailbox.flush()
         self.mailbox.unlock()
-        self.msgid2key = None
-        if exc_type is None and self.state_dirty:
+        self._msgid2key = None
+        if exc_type is None and self._state_dirty:
             self.state.save()
 
     @staticmethod
@@ -91,7 +91,7 @@ class Mailbox:
             if 0 < expires_in:
                 return
 
-        self.state_dirty = True
+        self._state_dirty = True
 
         saved_agent = feedparser.USER_AGENT
         try:
@@ -110,19 +110,21 @@ class Mailbox:
         feed = result.feed
         # Ensure we have some data (not a conditional GET).
         if result.entries:
-            self.feed_host = urlparse(feed.link).hostname
-            self.feed_msgid = self._make_stable_msgid(
+            self._feed_host = urlparse(feed.link).hostname
+            self._feed_msgid = self._make_stable_msgid(
                 feed.get("id") or feed.link,
-                self.feed_host,
+                self._feed_host,
             )
-            self.from_hdr = formataddr((name or feed.title, "feed@%s" % self.feed_host))
+            self._from_hdr = formataddr(
+                (name or feed.title, "feed@%s" % self._feed_host)
+            )
 
             try:
-                self.old_modified = parsedate_to_datetime(state.modified)
+                self._old_modified = parsedate_to_datetime(state.modified)
             except ValueError:
-                self.old_modified = None
+                self._old_modified = None
 
-            self.modified = self.old_modified
+            self._modified = self._old_modified
 
             has_new = False
             for entry in result.entries:
@@ -134,8 +136,8 @@ class Mailbox:
                 msg = self._generate_feed_msg(feed)
                 self._add_msg(msg)
 
-            if self.modified is not None:
-                state.modified = format_datetime(self.modified)
+            if self._modified is not None:
+                state.modified = format_datetime(self._modified)
 
         state.etag = result.get("etag")
 
@@ -150,8 +152,8 @@ class Mailbox:
 
     def _generate_feed_msg(self, feed):
         msg = EmailMessage()
-        msg["From"] = self.from_hdr
-        msg["Message-ID"] = self.feed_msgid
+        msg["From"] = self._from_hdr
+        msg["Message-ID"] = self._feed_msgid
         msg["Subject"] = feed.title
         msg["Link"] = feed.link
         if subtitle_detail := feed.get("subtitle_detail"):
@@ -168,19 +170,19 @@ class Mailbox:
         )
         date = datetime.fromtimestamp(date_as_tv, tz=timezone.utc)
 
-        if self.old_modified is not None and date <= self.old_modified:
+        if self._old_modified is not None and date <= self._old_modified:
             return
 
-        self.modified = max(self.modified or date, date)
+        self._modified = max(self._modified or date, date)
 
         msg = EmailMessage()
         msg["Received"] = "mrss; %s" % formatdate(localtime=True)
-        msg["In-Reply-To"] = self.feed_msgid
+        msg["In-Reply-To"] = self._feed_msgid
         left = entry.get("id") or entry.get("link") or entry.title
         assert 5 < len(left)
-        msg["Message-ID"] = self._make_stable_msgid(left, self.feed_host)
+        msg["Message-ID"] = self._make_stable_msgid(left, self._feed_host)
         msg["Date"] = formatdate(date_as_tv, localtime=True)
-        msg["From"] = self.from_hdr
+        msg["From"] = self._from_hdr
         msg["Subject"] = entry.title_detail.value.replace("\n", " ")
         if author := entry.get("author_detail") or feed.get("author_detail"):
             if href := author.get("href"):
@@ -212,14 +214,14 @@ class Mailbox:
         return msg
 
     def _update_msgids(self):
-        self.msgid2key = {}
+        self._msgid2key = {}
         for key, msg in self.mailbox.iteritems():
-            self.msgid2key[msg["Message-ID"]] = key
+            self._msgid2key[msg["Message-ID"]] = key
 
     def _add_msg(self, msg):
-        if self.msgid2key is None:
+        if self._msgid2key is None:
             self._update_msgids()
         msgid = msg["Message-ID"]
-        if msgid not in self.msgid2key:
+        if msgid not in self._msgid2key:
             self.log.debug("New: %s", msgid)
-            self.msgid2key[msgid] = self.mailbox.add(msg)
+            self._msgid2key[msgid] = self.mailbox.add(msg)
