@@ -1,4 +1,4 @@
-from ._easy import SitesMixin, UserAgentMixin, EasyMaildir
+from ._mixins import SitesMixin, UserAgentMixin, EasyMaildir
 from ._mailbox import Mailbox
 from ._maildir import Maildir
 from ._state import State, DictState, GzipState
