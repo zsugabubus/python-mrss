@@ -81,10 +81,10 @@ class SitesMixin:
 class UserAgentMixin:
     USER_AGENT = None
 
-    def url(self, *args, **kwargs):
+    def url(self, *args, user_agent: str | None = None, **kwargs):
         super().url(
-            user_agent=self.USER_AGENT,
             *args,
+            user_agent=user_agent or self.USER_AGENT,
             **kwargs,
         )
 
