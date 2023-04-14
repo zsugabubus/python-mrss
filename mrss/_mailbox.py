@@ -142,14 +142,11 @@ class Mailbox:
         ttl = timedelta(seconds=int(feed.get("ttl") or 0))
         expires = now + max(expires, ttl)
         if x := result.headers.get("expires"):
-            state.expires = format_datetime(
-                max(
-                    parsedate_to_datetime(x),
-                    expires,
-                )
-            )
-        else:
-            state.expires = format_datetime(expires)
+            try:
+                expires = max(expires, parsedate_to_datetime(x))
+            except ValueError as e:
+                self.log.warn(e)
+        state.expires = format_datetime(expires)
 
     def _generate_feed_msg(self, feed):
         msg = EmailMessage()
@@ -191,14 +188,11 @@ class Mailbox:
             else:
                 msg["Author"] = author.name
         msg["Link"] = entry.link
-        content = entry.get("content")
-        if content:
+        if content := entry.get("content"):
             assert len(content) == 1
             content = content[0]
         else:
-            content = entry.get("summary_detail")
-        if not content:
-            content = {
+            content = entry.get("summary_detail") or {
                 "value": entry.summary,
                 "language": None,
                 "type": (
@@ -225,6 +219,7 @@ class Mailbox:
     def _add_msg(self, msg):
         if self.msgid2key is None:
             self._update_msgids()
-        if msg["Message-ID"] not in self.msgid2key:
-            self.log.debug("New: %s", msg["Message-ID"])
-            self.msgid2key[msg["Message-ID"]] = self.mailbox.add(msg)
+        msgid = msg["Message-ID"]
+        if msgid not in self.msgid2key:
+            self.log.debug("New: %s", msgid)
+            self.msgid2key[msgid] = self.mailbox.add(msg)
