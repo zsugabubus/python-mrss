@@ -1,7 +1,6 @@
 from ._state import State
 from ._utils import human_duration
 from datetime import datetime, timedelta, timezone
-from email.header import Header
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, parsedate_to_datetime
 from hashlib import sha1

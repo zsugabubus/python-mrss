@@ -1,6 +1,6 @@
 from ._maildir import Maildir
 from ._state import GzipState
-from datetime import datetime, timedelta
+from datetime import timedelta
 import os.path
 
 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, fields
+from dataclasses import dataclass, fields
 from datetime import datetime
 from email.utils import parsedate_to_datetime, format_datetime
 from operator import attrgetter
