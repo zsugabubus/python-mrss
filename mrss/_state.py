@@ -48,15 +48,15 @@ class StateItem:
 class State(ABC):
     @abstractmethod
     def load(self):
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def save(self):
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def get(self):
-        pass
+        pass  # pragma: no cover
 
 
 class DictState(State):
