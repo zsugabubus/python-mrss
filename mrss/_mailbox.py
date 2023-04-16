@@ -13,6 +13,7 @@ import logging
 import mailbox
 import re
 import subprocess
+from typing import Union
 
 
 class Mailbox:
@@ -76,7 +77,7 @@ class Mailbox:
         *,
         key: str,
         data: Callable[[], str],
-        expires: timedelta = timedelta(),
+        expires: Union[timedelta, datetime] = timedelta(),
         name: str = None,
         reply_to: bool = True,
         user_agent: str | None = None,
@@ -137,8 +138,13 @@ class Mailbox:
 
         state.etag = result.get("etag")
 
+        if isinstance(expires, timedelta):
+            expires = now + expires
+
         ttl = timedelta(seconds=int(feed.get("ttl") or 0))
-        state.expires = now + max(expires, ttl)
+
+        state.expires = max(expires, now + ttl)
+
         if x := result.headers.get("expires"):
             try:
                 state.expires = max(state.expires, parsedate_to_datetime(x))
