@@ -28,7 +28,7 @@ class StateItem:
             key=key,
             modified=parse_date(modified),
             expires=parse_date(expires),
-            etag=etag,
+            etag=etag or None,
         )
 
     def to_csv(self):
