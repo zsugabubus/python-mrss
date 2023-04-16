@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass, fields
+from datetime import datetime
+from email.utils import parsedate_to_datetime, format_datetime
 from operator import attrgetter
 from pathlib import Path
+from typing import Optional
 import csv
 import gzip
 import os
-from dataclasses import asdict, dataclass, fields
-from email.utils import parsedate_to_datetime, format_datetime
-from datetime import datetime
-from typing import Optional
 
 
 @dataclass(slots=True, kw_only=True)
