@@ -5,14 +5,44 @@ import csv
 import gzip
 import os
 from dataclasses import asdict, dataclass, fields
+from email.utils import parsedate_to_datetime, format_datetime
+from datetime import datetime
+from typing import Optional
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class StateItem:
     key: str
-    modified: str | None = None
-    expires: str | None = None
-    etag: str | None = None
+    modified: Optional[str] = None
+    expires: Optional[str] = None
+    etag: Optional[str] = None
+
+    @classmethod
+    def from_csv(cls, key: str, modified: str, expires: str, etag: str):
+        def parse_date(s: str) -> Optional[datetime]:
+            if s:
+                return parsedate_to_datetime(s)
+            return None
+
+        return cls(
+            key=key,
+            modified=parse_date(modified),
+            expires=parse_date(expires),
+            etag=etag,
+        )
+
+    def to_csv(self):
+        def format_date(dt: Optional[datetime]) -> Optional[str]:
+            if dt:
+                return format_datetime(dt)
+            return None
+
+        return dict(
+            key=self.key,
+            modified=format_date(self.modified),
+            expires=format_date(self.expires),
+            etag=self.etag,
+        )
 
 
 class State(ABC):
@@ -67,7 +97,7 @@ class GzipState(DictState):
                     f,
                     dialect=self.TSVDialect,
                 )
-                self.store = {row["key"]: StateItem(**row) for row in reader}
+                self.store = {row["key"]: StateItem.from_csv(**row) for row in reader}
         except FileNotFoundError:
             pass
 
@@ -81,10 +111,10 @@ class GzipState(DictState):
             )
 
             writer.writeheader()
-            for row in sorted(
+            for item in sorted(
                 self.store.values(),
                 key=attrgetter("key"),
             ):
-                writer.writerow(asdict(row))
+                writer.writerow(item.to_csv())
         os.rename(tmp, self.filename)
         super().save()

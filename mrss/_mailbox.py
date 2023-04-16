@@ -3,7 +3,7 @@ from ._utils import human_duration
 from datetime import datetime, timedelta, timezone
 from email.header import Header
 from email.message import EmailMessage
-from email.utils import formataddr, formatdate, parsedate_to_datetime, format_datetime
+from email.utils import formataddr, formatdate, parsedate_to_datetime
 from hashlib import sha1
 from time import mktime
 from typing import Callable
@@ -86,7 +86,7 @@ class Mailbox:
         state = self.state.get(key)
 
         if x := state.expires:
-            expires_in = (parsedate_to_datetime(x) - now).total_seconds()
+            expires_in = (x - now).total_seconds()
             self.log.debug("%s: Expires in %s", key, human_duration(expires_in))
             if 0 < expires_in:
                 return
@@ -119,11 +119,7 @@ class Mailbox:
                 (name or feed.title, "feed@%s" % self._feed_host)
             )
 
-            try:
-                self._old_modified = parsedate_to_datetime(state.modified)
-            except ValueError:
-                self._old_modified = None
-
+            self._old_modified = state.modified
             self._modified = self._old_modified
 
             has_new = False
@@ -137,18 +133,17 @@ class Mailbox:
                 self._add_msg(msg)
 
             if self._modified is not None:
-                state.modified = format_datetime(self._modified)
+                state.modified = self._modified
 
         state.etag = result.get("etag")
 
         ttl = timedelta(seconds=int(feed.get("ttl") or 0))
-        expires = now + max(expires, ttl)
+        state.expires = now + max(expires, ttl)
         if x := result.headers.get("expires"):
             try:
-                expires = max(expires, parsedate_to_datetime(x))
+                state.expires = max(state.expires, parsedate_to_datetime(x))
             except ValueError as e:
                 self.log.warn(e)
-        state.expires = format_datetime(expires)
 
     def _generate_feed_msg(self, feed):
         msg = EmailMessage()
