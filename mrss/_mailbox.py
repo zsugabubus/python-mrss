@@ -6,14 +6,13 @@ from email.message import EmailMessage
 from email.utils import formataddr, formatdate, parsedate_to_datetime
 from hashlib import sha1
 from time import mktime
-from typing import Callable
+from typing import Callable, Optional, Union
 from urllib.parse import urlparse
 import feedparser
 import logging
 import mailbox
 import re
 import subprocess
-from typing import Union
 
 
 class Mailbox:
@@ -78,9 +77,9 @@ class Mailbox:
         key: str,
         data: Callable[[], str],
         expires: Union[timedelta, datetime] = timedelta(),
-        name: str = None,
+        name: Optional[str] = None,
         reply_to: bool = True,
-        user_agent: str | None = None,
+        user_agent: Optional[str] = None,
     ):
         now = datetime.now(timezone.utc)
 
