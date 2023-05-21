@@ -190,8 +190,7 @@ class Mailbox:
                 msg["Author"] = author.name
         msg["Link"] = entry.link
         if content := entry.get("content"):
-            assert len(content) == 1
-            content = content[0]
+            content = max(content, key=lambda x: len(x["value"]))
         else:
             content = entry.get("summary_detail") or {
                 "value": entry.summary,
