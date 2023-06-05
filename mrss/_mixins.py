@@ -9,72 +9,98 @@ class SitesMixin:
         self,
         channel: str,
         *,
-        name: str = None,
+        expires=timedelta(hours=12),
+        **kwargs,
     ):
-        self.url(
-            name=name,
+        return self.url(
             url=f"https://www.youtube.com/feeds/videos.xml?channel_id={channel}",
-            expires=timedelta(hours=12),
+            expires=expires,
+            **kwargs,
         )
 
     def gitlab_commits(
         self,
         repo: str,
         *,
-        branch: str = "master",
+        branch="master",
+        name: str = None,
+        expires=timedelta(3),
+        reply_to=False,
+        **kwargs,
     ):
-        self.url(
-            name=f"{repo}:{branch} commits",
+        return self.url(
+            name=name or f"{repo}:{branch} commits",
             url=f"https://gitlab.com/{repo}/commits/{branch}?format=atom",
-            expires=timedelta(3),
-            reply_to=False,
+            expires=expires,
+            reply_to=reply_to,
+            **kwargs,
         )
 
     def github_commits(
         self,
         repo: str,
         *,
-        branch: str = "master",
+        branch="master",
+        name: str = None,
+        expires=timedelta(3),
+        reply_to=False,
+        **kwargs,
     ):
-        self.url(
-            name=f"{repo}:{branch} commits",
+        return self.url(
+            name=name or f"{repo}:{branch} commits",
             url=f"https://github.com/{repo}/commits/{branch}.atom",
-            expires=timedelta(3),
-            reply_to=False,
+            expires=expires,
+            reply_to=reply_to,
+            **kwargs,
         )
 
-    def github_releases(self, repo: str):
-        self.url(
-            name=f"{repo} releases",
+    def github_releases(
+        self,
+        repo: str,
+        *,
+        name: str = None,
+        expires=timedelta(7),
+        reply_to=False,
+        **kwargs,
+    ):
+        return self.url(
+            name=name or f"{repo} releases",
             url=f"https://github.com/{repo}/releases.atom",
-            expires=timedelta(7),
-            reply_to=False,
+            expires=expires,
+            reply_to=reply_to,
+            **kwargs,
         )
 
     def reddit_submitted(
         self,
         user: str,
         *,
-        expires: timedelta = timedelta(hours=12),
+        name: str = None,
+        expires=timedelta(hours=12),
+        reply_to=False,
+        **kwargs,
     ):
-        self.url(
-            name=user,
+        return self.url(
+            name=name or user,
             url=f"https://www.reddit.com/user/{user}/submitted.rss",
             expires=expires,
-            reply_to=False,
+            reply_to=reply_to,
+            **kwargs,
         )
 
     def blog(
         self,
         url: str,
         *,
-        name: str = None,
+        expires=timedelta(7),
+        reply_to=False,
+        **kwargs,
     ):
-        self.url(
+        return self.url(
             url,
-            name=name,
-            expires=timedelta(7),
-            reply_to=False,
+            expires=expires,
+            reply_to=reply_to,
+            **kwargs,
         )
 
 
